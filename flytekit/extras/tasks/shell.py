@@ -111,6 +111,7 @@ class ShellTask(PythonInstanceTask[T]):
         inputs: typing.Optional[typing.Dict[str, typing.Type]] = None,
         output_locs: typing.Optional[typing.List[OutputLocation]] = None,
         env: typing.Optional[typing.Dict[str, typing.Any]] = None,
+        script_args: typing.Optional[str] = None,
         **kwargs,
     ):
         """
@@ -123,6 +124,7 @@ class ShellTask(PythonInstanceTask[T]):
             inputs: A Dictionary of input names to types
             output_locs: A list of :py:class:`OutputLocations`
             env: A Dictionary of env variable names and values to set for the shell script runtime
+            script_args: A string of args to the script_file. To be used like: `bash script_file script_args`
             **kwargs: Other arguments that can be passed to :ref:class:`PythonInstanceTask`
         """
         if script and script_file:
@@ -155,6 +157,7 @@ class ShellTask(PythonInstanceTask[T]):
         self._output_locs = output_locs if output_locs else []
         self._interpolizer = _PythonFStringInterpolizer()
         self._env = env
+        self._script_args = script_args
         outputs = self._validate_output_locs()
         super().__init__(
             name,
@@ -223,9 +226,13 @@ class ShellTask(PythonInstanceTask[T]):
         with open(tmp_script_path, 'w') as fp:
             fp.write(gen_script)
         os.chmod(tmp_script_path, stat.S_IRWXU)
+        if self._script_args:
+            full_script = tmp_script_path + " " + self._script_args
+        else:
+            full_script = tmp_script_path
 
         try:
-            subprocess.run(tmp_script_path, shell=True, check=True)
+            subprocess.run(full_script, shell=True, check=True)
         except subprocess.CalledProcessError as e:
             files = os.listdir(".")
             fstr = "\n-".join(files)
