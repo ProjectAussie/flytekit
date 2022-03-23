@@ -1,5 +1,6 @@
 import datetime
 import os
+import stat
 import string
 import subprocess
 import typing
@@ -109,6 +110,7 @@ class ShellTask(PythonInstanceTask[T]):
         task_config: T = None,
         inputs: typing.Optional[typing.Dict[str, typing.Type]] = None,
         output_locs: typing.Optional[typing.List[OutputLocation]] = None,
+        env: typing.Optional[typing.Dict[str, typing.Any]] = None,
         **kwargs,
     ):
         """
@@ -120,6 +122,7 @@ class ShellTask(PythonInstanceTask[T]):
             task_config: T Configuration for the task, can be either a Pod (or coming soon, BatchJob) config
             inputs: A Dictionary of input names to types
             output_locs: A list of :py:class:`OutputLocations`
+            env: A Dictionary of env variable names and values to set for the shell script runtime
             **kwargs: Other arguments that can be passed to :ref:class:`PythonInstanceTask`
         """
         if script and script_file:
@@ -151,6 +154,7 @@ class ShellTask(PythonInstanceTask[T]):
         self._debug = debug
         self._output_locs = output_locs if output_locs else []
         self._interpolizer = _PythonFStringInterpolizer()
+        self._env = env
         outputs = self._validate_output_locs()
         super().__init__(
             name,
@@ -210,8 +214,18 @@ class ShellTask(PythonInstanceTask[T]):
             print(gen_script)
             print("\n==============================================\n")
 
+        if self._env is not None:
+            for k, v in self._env.items():
+                os.environ[k] = str(v)
+
+        working_dir = flytekit.current_context().working_directory
+        tmp_script_path = os.path.join(working_dir, "tmp_script.sh")
+        with open(tmp_script_path, 'w') as fp:
+            fp.write(gen_script)
+        os.chmod(tmp_script_path, stat.S_IRWXU)
+
         try:
-            subprocess.check_call(gen_script, shell=True)
+            subprocess.run(tmp_script_path, shell=True, check=True)
         except subprocess.CalledProcessError as e:
             files = os.listdir(".")
             fstr = "\n-".join(files)
