@@ -110,8 +110,8 @@ class ShellTask(PythonInstanceTask[T]):
         task_config: T = None,
         inputs: typing.Optional[typing.Dict[str, typing.Type]] = None,
         output_locs: typing.Optional[typing.List[OutputLocation]] = None,
-        env: typing.Optional[typing.Dict[str, typing.Any]] = None,
-        script_args: typing.Optional[str] = None,
+        env: typing.Optional[typing.List[str]] = None,
+        interpolizer: typing.Optional[typing.Any] = _PythonFStringInterpolizer(),
         **kwargs,
     ):
         """
@@ -123,7 +123,7 @@ class ShellTask(PythonInstanceTask[T]):
             task_config: T Configuration for the task, can be either a Pod (or coming soon, BatchJob) config
             inputs: A Dictionary of input names to types
             output_locs: A list of :py:class:`OutputLocations`
-            env: A Dictionary of env variable names and values to set for the shell script runtime
+            env: A List of env variable names to look for in inputs and set for the shell script runtime
             script_args: A string of args to the script_file. To be used like: `bash script_file script_args`
             **kwargs: Other arguments that can be passed to :ref:class:`PythonInstanceTask`
         """
@@ -155,9 +155,8 @@ class ShellTask(PythonInstanceTask[T]):
         self._script_file = script_file
         self._debug = debug
         self._output_locs = output_locs if output_locs else []
-        self._interpolizer = _PythonFStringInterpolizer()
+        self._interpolizer = interpolizer
         self._env = env
-        self._script_args = script_args
         outputs = self._validate_output_locs()
         super().__init__(
             name,
@@ -199,6 +198,18 @@ class ShellTask(PythonInstanceTask[T]):
         Executes the given script by substituting the inputs and outputs and extracts the outputs from the filesystem
         """
         logger.info(f"Running shell script as type {self.task_type}")
+        breakpoint()
+        # remove the extra vars from kwargs and set them for the shell script
+        original_env = os.environ.copy()
+        if self._env:
+            for k in self._env:
+                if k in kwargs:
+                    v = kwargs.pop(k)
+                    os.environ[k] = str(v)
+
+        # somewhat hidden behavior and hacky at the moment, if script_args is in kwargs, grab it and save it
+        script_args = kwargs.pop("script_args") if "script_args" in kwargs else None
+
         if self.script_file:
             with open(self.script_file) as f:
                 self._script = f.read()
@@ -206,28 +217,31 @@ class ShellTask(PythonInstanceTask[T]):
         outputs: typing.Dict[str, str] = {}
         if self._output_locs:
             for v in self._output_locs:
-                outputs[v.var] = self._interpolizer.interpolate(v.location, inputs=kwargs)
+                if self._interpolizer:
+                    outputs[v.var] = self._interpolizer.interpolate(v.location, inputs=kwargs)
+                else:
+                    outputs[v.var] = v.location
 
         if os.name == "nt":
             self._script = self._script.lstrip().rstrip().replace("\n", "&&")
 
-        gen_script = self._interpolizer.interpolate(self._script, inputs=kwargs, outputs=outputs)
+        if self._interpolizer:
+            gen_script = self._interpolizer.interpolate(self._script, inputs=kwargs, outputs=outputs)
+        else:
+            gen_script = self._script
+
         if self._debug:
             print("\n==============================================\n")
             print(gen_script)
             print("\n==============================================\n")
-
-        if self._env is not None:
-            for k, v in self._env.items():
-                os.environ[k] = str(v)
 
         working_dir = flytekit.current_context().working_directory
         tmp_script_path = os.path.join(working_dir, "tmp_script.sh")
         with open(tmp_script_path, 'w') as fp:
             fp.write(gen_script)
         os.chmod(tmp_script_path, stat.S_IRWXU)
-        if self._script_args:
-            full_script = tmp_script_path + " " + self._script_args
+        if script_args:
+            full_script = tmp_script_path + " " + script_args
         else:
             full_script = tmp_script_path
 
@@ -243,6 +257,8 @@ class ShellTask(PythonInstanceTask[T]):
                 f" Current directory contents: .\n-{fstr}"
             )
             raise
+
+        os.environ = original_env
 
         final_outputs = []
         for v in self._output_locs:
