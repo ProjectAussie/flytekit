@@ -156,6 +156,7 @@ class ShellTask(PythonInstanceTask[T]):
         self._debug = debug
         self._output_locs = output_locs if output_locs else []
         self._interpolizer = interpolizer
+        self.__output_interpolizer = _PythonFStringInterpolizer()
         self._env = env
         outputs = self._validate_output_locs()
         super().__init__(
@@ -199,13 +200,6 @@ class ShellTask(PythonInstanceTask[T]):
         """
         logger.info(f"Running shell script as type {self.task_type}")
         breakpoint()
-        # remove the extra vars from kwargs and set them for the shell script
-        original_env = os.environ.copy()
-        if self._env:
-            for k in self._env:
-                if k in kwargs:
-                    v = kwargs.pop(k)
-                    os.environ[k] = str(v)
 
         # somewhat hidden behavior and hacky at the moment, if script_args is in kwargs, grab it and save it
         script_args = kwargs.pop("script_args") if "script_args" in kwargs else None
@@ -214,13 +208,19 @@ class ShellTask(PythonInstanceTask[T]):
             with open(self.script_file) as f:
                 self._script = f.read()
 
+        # In the event ENV variables are used in the script AND as part of the outputs, need to process them first
         outputs: typing.Dict[str, str] = {}
         if self._output_locs:
             for v in self._output_locs:
-                if self._interpolizer:
-                    outputs[v.var] = self._interpolizer.interpolate(v.location, inputs=kwargs)
-                else:
-                    outputs[v.var] = v.location
+                outputs[v.var] = self.__output_interpolizer.interpolate(v.location, inputs=kwargs)
+
+        # remove the extra ENV vars from kwargs and set them for the shell script
+        original_env = os.environ.copy()
+        if self._env:
+            for k in self._env:
+                if k in kwargs:
+                    v = kwargs.pop(k)
+                    os.environ[k] = str(v)
 
         if os.name == "nt":
             self._script = self._script.lstrip().rstrip().replace("\n", "&&")

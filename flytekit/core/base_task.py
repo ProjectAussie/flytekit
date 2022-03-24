@@ -470,7 +470,6 @@ class PythonTask(TrackedInstance, Task, Generic[T]):
             #   a workflow or a subworkflow etc
             logger.info(f"Invoking {self.name} with inputs: {native_inputs}")
             try:
-                breakpoint()
                 native_outputs = self.execute(**native_inputs)
             except Exception as e:
                 logger.exception(f"Exception when executing {e}")
