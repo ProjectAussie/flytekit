@@ -199,7 +199,6 @@ class ShellTask(PythonInstanceTask[T]):
         Executes the given script by substituting the inputs and outputs and extracts the outputs from the filesystem
         """
         logger.info(f"Running shell script as type {self.task_type}")
-        breakpoint()
 
         # somewhat hidden behavior and hacky at the moment, if script_args is in kwargs, grab it and save it
         script_args = kwargs.pop("script_args") if "script_args" in kwargs else None
