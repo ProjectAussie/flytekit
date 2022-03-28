@@ -249,3 +249,15 @@ def test_shell_script():
 
     assert t.script_file == script_sh
     t(f=test_csv, y=testdata, j=datetime.datetime(2021, 11, 10, 12, 15, 0))
+
+
+def test_shell_script_with_args():
+    pass
+
+
+def test_shell_script_with_env():
+    pass
+
+
+def test_shell_script_properly_restires_env_after_execution():
+    pass
