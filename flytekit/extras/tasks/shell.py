@@ -113,31 +113,34 @@ class MappingRevisor:
     as this would override the `os._Environ` with a `dict`.
     """
     def __init__(self, mapping):
-       self.mapping = mapping
-       self.changes = {}
-       self.new_keys = []
+        self.mapping = mapping
+        self.changes = {}
+        self.new_keys = []
 
     def __getitem__(self, key):
-       return self.mapping[key]
+        return self.mapping[key]
 
     def __setitem__(self, key, value):
-       if key not in self.mapping:
-           self.new_keys.append(key)
-       if key not in self.changes and key in self.mapping:
-          self.changes[key] = self.mapping[key]
-       self.mapping[key] = value
+        if key not in self.mapping:
+            self.new_keys.append(key)
+        if key not in self.changes and key in self.mapping:
+            self.changes[key] = self.mapping[key]
+        self.mapping[key] = value
 
     def reset(self):
-       for k, v in self.changes.items():
-           self.mapping[k] = v
-       for k in self.new_keys:
-           self.mapping.pop(k)
+        for k, v in self.changes.items():
+            self.mapping[k] = v
+        for k in self.new_keys:
+            self.mapping.pop(k)
 
     def __enter__(self):
-       return self
+        return self
 
     def __exit__(self, *args, **kwargs):
-       self.reset()
+        self.reset()
+
+    def __del__(self):
+        self.reset()
 
 
 class ShellTask(PythonInstanceTask[T]):
