@@ -13,8 +13,6 @@ from flytekit.extras.tasks.shell import OutputLocation, ShellTask
 from flytekit.types.directory import FlyteDirectory
 from flytekit.types.file import CSVFile, FlyteFile
 
-breakpoint()
-
 test_file_path = os.path.dirname(os.path.realpath(__file__))
 testdata = os.path.join(test_file_path, "testdata")
 test_csv = os.path.join(testdata, "test.csv")
@@ -24,8 +22,6 @@ else:
     script_sh = os.path.join(testdata, "script.sh")
     script_sh_2 = os.path.join(testdata, "script_args_env.sh")
 
-breakpoint()
-
 def test_shell_task_no_io():
     t = ShellTask(
         name="test",
@@ -33,9 +29,7 @@ def test_shell_task_no_io():
         echo "Hello World!"
         """,
     )
-    breakpoint()
     t()
-    breakpoint()
 
 def test_shell_task_fail():
     t = ShellTask(
@@ -271,7 +265,7 @@ def test_shell_task_with_args(capfd):
     assert "second_arg" in cap.out
 
 
-def test_shell_task_with_env():
+def test_shell_task_with_env(capfd):
     test_write_shell_task = ShellTask(
         name="test_write_shell_task",
         debug=True,
@@ -281,12 +275,27 @@ def test_shell_task_with_env():
         env=["A", "B"]
     )
     test_write_shell_task(
-        A="AA", B="BB"
+        A="AAAA", B="BBBB"
     )
+    cap = capfd.readouterr()
+    assert "AAAA" in cap.out
+    assert "BBBB" in cap.out
 
 
 def test_shell_task_properly_restores_env_after_execution():
-    pass
+    env_as_dict = os.environ.copy()
+    t = ShellTask(
+        name="t",
+        debug=True,
+        script="""
+        echo Hello World
+        """,
+        inputs=kwtypes(ENV_VAR=str),
+        env=["ENV_VAR"]
+    )
+    t(ENV_VAR="TESTING")
+    env_as_dict_after = os.environ.copy()
+    assert env_as_dict == env_as_dict_after
 
 
 def test_simple():

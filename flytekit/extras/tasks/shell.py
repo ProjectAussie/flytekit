@@ -287,7 +287,7 @@ class ShellTask(PythonInstanceTask[T]):
             raise
 
         env_revisor.reset()
-        breakpoint()
+
         final_outputs = []
         for v in self._output_locs:
             if issubclass(v.var_type, FlyteFile):
