@@ -99,31 +99,35 @@ T = typing.TypeVar("T")
 
 
 class MappingRevisor:
-   def __init__(self, mapping):
+    """
+    This context manager is used to set environment for ShellTask execution and then revert the environment to its
+    previous state. Can be used as a non-context manager but requires manually calling reset()
+    """
+    def __init__(self, mapping):
        self.mapping = mapping
        self.changes = {}
        self.new_keys = []
 
-   def __getitem__(self, key):
+    def __getitem__(self, key):
        return self.mapping[key]
 
-   def __setitem__(self, key, value):
+    def __setitem__(self, key, value):
        if key not in self.mapping:
            self.new_keys.append(key)
        if key not in self.changes and key in self.mapping:
           self.changes[key] = self.mapping[key]
        self.mapping[key] = value
 
-   def reset(self):
+    def reset(self):
        for k, v in self.changes.items():
            self.mapping[k] = v
        for k in self.new_keys:
            self.mapping.pop(k)
 
-   def __enter__(self):
+    def __enter__(self):
        return self
 
-   def __exit__(self, *args, **kwargs):
+    def __exit__(self, *args, **kwargs):
        self.reset()
 
 
