@@ -155,7 +155,6 @@ class ShellTask(PythonInstanceTask[T]):
         task_config: T = None,
         inputs: typing.Optional[typing.Dict[str, typing.Type]] = None,
         output_locs: typing.Optional[typing.List[OutputLocation]] = None,
-        env: typing.Optional[typing.List[str]] = None,
         interpolizer: typing.Optional[typing.Any] = _PythonFStringInterpolizer(),
         **kwargs,
     ):
