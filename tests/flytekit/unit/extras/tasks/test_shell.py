@@ -251,7 +251,7 @@ def test_shell_script():
     t(f=test_csv, y=testdata, j=datetime.datetime(2021, 11, 10, 12, 15, 0))
 
 
-def test_shell_task_with_args(capsys):
+def test_shell_task_with_args(capfd):
     test_write_shell_task = ShellTask(
         name="test_write_shell_task",
         debug=True,
@@ -262,6 +262,9 @@ def test_shell_task_with_args(capsys):
     test_write_shell_task(
         script_args="first_arg second_arg"
     )
+    cap = capfd.readouterr()
+    assert "first_arg" in cap.out
+    assert "second_arg" in cap.out
 
 
 def test_shell_task_with_env():
@@ -270,11 +273,11 @@ def test_shell_task_with_env():
         debug=True,
         script_file=os.path.join(testdata, "script_args_env.sh"),
         interpolizer=None,
-        inputs=kwtypes(A=str, B=str, script_args=str),
+        inputs=kwtypes(A=str, B=str),
         env=["A", "B"]
     )
     test_write_shell_task(
-        A="AA", B="BB", script_args="first_arg second_arg"
+        A="AA", B="BB"
     )
 
 
@@ -282,5 +285,12 @@ def test_shell_task_properly_restores_env_after_execution():
     pass
 
 
-def test_shell_task_raises_subprocess_called_error():
-    pass
+def test_simple():
+    import subprocess
+    os.environ["TEST"] = "TESTING 1 2 3"
+    subprocess.run("echo This is a .... test: $TEST", shell=True, check=True)
+    #print(capfd.readouterr().out)
+
+
+if __name__ == "__main__":
+    test_simple()
