@@ -150,10 +150,12 @@ class ShellTask(PythonInstanceTask[T]):
             script: The actual script specified as a string
             script_file: A path to the file that contains the script (Only script or script_file) can be provided
             task_config: T Configuration for the task, can be either a Pod (or coming soon, BatchJob) config
-            inputs: A Dictionary of input names to types
+            inputs: A Dictionary of input names to types. NOTE: `env` and `script_args` and special inputs of type
+                `dict` and `str` respectively. These are handled in the `execute()` block to set env variables and pass
+                in args to the script
             output_locs: A list of :py:class:`OutputLocations`
-            env: A List of env variable names to look for in inputs and set for the shell script runtime
-            script_args: A string of args to the script_file. To be used like: `bash script_file script_args`
+            interpolizer: Pass in None if you do not wish to interpolate the script. i.e - you are porting an existing
+                standalone shell script.
             **kwargs: Other arguments that can be passed to :ref:class:`PythonInstanceTask`
         """
         if script and script_file:
