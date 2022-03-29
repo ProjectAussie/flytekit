@@ -13,6 +13,8 @@ from flytekit.extras.tasks.shell import OutputLocation, ShellTask
 from flytekit.types.directory import FlyteDirectory
 from flytekit.types.file import CSVFile, FlyteFile
 
+breakpoint()
+
 test_file_path = os.path.dirname(os.path.realpath(__file__))
 testdata = os.path.join(test_file_path, "testdata")
 test_csv = os.path.join(testdata, "test.csv")
@@ -22,6 +24,8 @@ else:
     script_sh = os.path.join(testdata, "script.sh")
     script_sh_2 = os.path.join(testdata, "script_args_env.sh")
 
+breakpoint()
+
 def test_shell_task_no_io():
     t = ShellTask(
         name="test",
@@ -29,9 +33,9 @@ def test_shell_task_no_io():
         echo "Hello World!"
         """,
     )
-
+    breakpoint()
     t()
-
+    breakpoint()
 
 def test_shell_task_fail():
     t = ShellTask(
@@ -288,7 +292,8 @@ def test_shell_task_properly_restores_env_after_execution():
 def test_simple():
     import subprocess
     os.environ["TEST"] = "TESTING 1 2 3"
-    subprocess.run("echo This is a .... test: $TEST", shell=True, check=True)
+    os.putenv("TEST", "TESTING 1 2 3")
+    subprocess.run("echo This is a test: $TEST", shell=True, check=True)
     #print(capfd.readouterr().out)
 
 

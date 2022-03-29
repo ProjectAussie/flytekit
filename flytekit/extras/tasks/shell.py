@@ -98,6 +98,35 @@ class _PythonFStringInterpolizer:
 T = typing.TypeVar("T")
 
 
+class MappingRevisor:
+   def __init__(self, mapping):
+       self.mapping = mapping
+       self.changes = {}
+       self.new_keys = []
+
+   def __getitem__(self, key):
+       return self.mapping[key]
+
+   def __setitem__(self, key, value):
+       if key not in self.mapping:
+           self.new_keys.append(key)
+       if key not in self.changes and key in self.mapping:
+          self.changes[key] = self.mapping[key]
+       self.mapping[key] = value
+
+   def reset(self):
+       for k, v in self.changes.items():
+           self.mapping[k] = v
+       for k in self.new_keys:
+           self.mapping.pop(k)
+
+   def __enter__(self):
+       return self
+
+   def __exit__(self, *args, **kwargs):
+       self.reset()
+
+
 class ShellTask(PythonInstanceTask[T]):
     """ """
 
@@ -214,12 +243,12 @@ class ShellTask(PythonInstanceTask[T]):
                 outputs[v.var] = self.__output_interpolizer.interpolate(v.location, inputs=kwargs)
 
         # remove the extra ENV vars from kwargs and set them for the shell script
-        original_env = os.environ.copy()
+        env_revisor = MappingRevisor(os.environ)
         if self._env:
             for k in self._env:
                 if k in kwargs:
                     v = kwargs.pop(k)
-                    os.environ[k] = str(v)
+                    env_revisor[k] = str(v)
 
         if os.name == "nt":
             self._script = self._script.lstrip().rstrip().replace("\n", "&&")
@@ -257,8 +286,8 @@ class ShellTask(PythonInstanceTask[T]):
             )
             raise
 
-        os.environ = original_env
-
+        env_revisor.reset()
+        breakpoint()
         final_outputs = []
         for v in self._output_locs:
             if issubclass(v.var_type, FlyteFile):
