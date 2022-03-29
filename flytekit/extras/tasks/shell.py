@@ -101,7 +101,16 @@ T = typing.TypeVar("T")
 class MappingRevisor:
     """
     This context manager is used to set environment for ShellTask execution and then revert the environment to its
-    previous state. Can be used as a non-context manager but requires manually calling reset()
+    previous state. Can be used as a non-context manager but requires manually calling reset().
+
+    This is needed because `os.environ` is an instance of `os._Environ`, but it quacks like a dict and inherits copy(),
+    which returns a `dict`. So you cannot simply do
+    ```python
+    original_env = os.environ.copy()
+    # do stuff
+    os.environ = original_env
+    ```
+    as this would override the `os._Environ` with a `dict`.
     """
     def __init__(self, mapping):
        self.mapping = mapping
