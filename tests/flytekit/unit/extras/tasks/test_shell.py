@@ -20,7 +20,7 @@ if os.name == "nt":
     script_sh = os.path.join(testdata, "script.exe")
 else:
     script_sh = os.path.join(testdata, "script.sh")
-
+    script_sh_2 = os.path.join(testdata, "script_args_env.sh")
 
 def test_shell_task_no_io():
     t = ShellTask(
@@ -251,13 +251,36 @@ def test_shell_script():
     t(f=test_csv, y=testdata, j=datetime.datetime(2021, 11, 10, 12, 15, 0))
 
 
-def test_shell_script_with_args():
+def test_shell_task_with_args(capsys):
+    test_write_shell_task = ShellTask(
+        name="test_write_shell_task",
+        debug=True,
+        script_file=os.path.join(testdata, "script_args_env.sh"),
+        interpolizer=None,
+        inputs=kwtypes(script_args=str),
+    )
+    test_write_shell_task(
+        script_args="first_arg second_arg"
+    )
+
+
+def test_shell_task_with_env():
+    test_write_shell_task = ShellTask(
+        name="test_write_shell_task",
+        debug=True,
+        script_file=os.path.join(testdata, "script_args_env.sh"),
+        interpolizer=None,
+        inputs=kwtypes(A=str, B=str, script_args=str),
+        env=["A", "B"]
+    )
+    test_write_shell_task(
+        A="AA", B="BB", script_args="first_arg second_arg"
+    )
+
+
+def test_shell_task_properly_restores_env_after_execution():
     pass
 
 
-def test_shell_script_with_env():
-    pass
-
-
-def test_shell_script_properly_restires_env_after_execution():
+def test_shell_task_raises_subprocess_called_error():
     pass
