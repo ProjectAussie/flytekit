@@ -271,11 +271,10 @@ def test_shell_task_with_env(capfd):
         debug=True,
         script_file=os.path.join(testdata, "script_args_env.sh"),
         interpolizer=None,
-        inputs=kwtypes(A=str, B=str),
-        env=["A", "B"]
+        inputs=kwtypes(env=dict),
     )
     test_write_shell_task(
-        A="AAAA", B="BBBB"
+        env={"A": "AAAA", "B": "BBBB"}
     )
     cap = capfd.readouterr()
     assert "AAAA" in cap.out
@@ -290,10 +289,9 @@ def test_shell_task_properly_restores_env_after_execution():
         script="""
         echo Hello World
         """,
-        inputs=kwtypes(ENV_VAR=str),
-        env=["ENV_VAR"]
+        inputs=kwtypes(env=dict),
     )
-    t(ENV_VAR="TESTING")
+    t(env={"ENV_VAR": "TESTING"})
     env_as_dict_after = os.environ.copy()
     assert env_as_dict == env_as_dict_after
 

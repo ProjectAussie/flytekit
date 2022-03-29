@@ -186,7 +186,8 @@ class ShellTask(PythonInstanceTask[T]):
         self._output_locs = output_locs if output_locs else []
         self._interpolizer = interpolizer
         self.__output_interpolizer = _PythonFStringInterpolizer()
-        self._env = env
+        self._has_env = True if inputs and "env" in inputs else False
+        self._has_script_args = True if inputs and "script_args" in inputs else False
         outputs = self._validate_output_locs()
         super().__init__(
             name,
@@ -230,7 +231,7 @@ class ShellTask(PythonInstanceTask[T]):
         logger.info(f"Running shell script as type {self.task_type}")
 
         # somewhat hidden behavior and hacky at the moment, if script_args is in kwargs, grab it and save it
-        script_args = kwargs.pop("script_args") if "script_args" in kwargs else None
+        script_args = kwargs.pop("script_args") if self._has_script_args else None
 
         if self.script_file:
             with open(self.script_file) as f:
@@ -242,13 +243,12 @@ class ShellTask(PythonInstanceTask[T]):
             for v in self._output_locs:
                 outputs[v.var] = self.__output_interpolizer.interpolate(v.location, inputs=kwargs)
 
-        # remove the extra ENV vars from kwargs and set them for the shell script
+        # remove the extra env dict from kwargs and set them for the shell script
         env_revisor = MappingRevisor(os.environ)
-        if self._env:
-            for k in self._env:
-                if k in kwargs:
-                    v = kwargs.pop(k)
-                    env_revisor[k] = str(v)
+        if self._has_env:
+            env = kwargs.pop("env")
+            for k, v in env.items():
+                env_revisor[k] = str(v)
 
         if os.name == "nt":
             self._script = self._script.lstrip().rstrip().replace("\n", "&&")
