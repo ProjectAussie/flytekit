@@ -116,6 +116,7 @@ class MappingRevisor:
         self.mapping = mapping
         self.changes = {}
         self.new_keys = []
+        self._reset = False
 
     def __getitem__(self, key):
         return self.mapping[key]
@@ -132,6 +133,7 @@ class MappingRevisor:
             self.mapping[k] = v
         for k in self.new_keys:
             self.mapping.pop(k)
+        self._reset = True
 
     def __enter__(self):
         return self
@@ -140,7 +142,9 @@ class MappingRevisor:
         self.reset()
 
     def __del__(self):
-        self.reset()
+        if not self._reset:
+            self.reset()
+            self._reset = True
 
 
 class ShellTask(PythonInstanceTask[T]):
