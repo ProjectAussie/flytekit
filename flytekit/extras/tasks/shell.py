@@ -184,6 +184,20 @@ class ShellTask(PythonInstanceTask[T]):
     def script_file(self) -> typing.Optional[os.PathLike]:
         return self._script_file
 
+    def make_export_string_from_env_dict(self, d) -> str:
+        """
+        Utility function to convert a dictionary of desired environment variable key: value pairs into a string of
+        `
+        export k1=v1
+        export k2=v2
+        ...
+        `
+        """
+        items = []
+        for k, v in d.items():
+            items.append(f"export {k}={v}")
+        return "\n".join(items)
+
     def pre_execute(self, user_params: ExecutionParameters) -> ExecutionParameters:
         return self._config_task_instance.pre_execute(user_params)
 
@@ -203,6 +217,11 @@ class ShellTask(PythonInstanceTask[T]):
 
         if os.name == "nt":
             self._script = self._script.lstrip().rstrip().replace("\n", "&&")
+
+        if "env" in kwargs and isinstance(kwargs["env"], dict):
+            # This supports the portable_shell_task by adding an additional key:value pair to kwargs/input
+            # This will cause collisions if a user tries to use `env` AND `export_env` in their inputs
+            kwargs["export_env"] = self.make_export_string_from_env_dict(kwargs["env"])
 
         gen_script = self._interpolizer.interpolate(self._script, inputs=kwargs, outputs=outputs)
         if self._debug:
@@ -237,3 +256,30 @@ class ShellTask(PythonInstanceTask[T]):
 
     def post_execute(self, user_params: ExecutionParameters, rval: typing.Any) -> typing.Any:
         return self._config_task_instance.post_execute(user_params, rval)
+
+# The portable_shell_task is an instance of ShellTask which wraps a 'pure' shell script
+# This utility function allows for the specification of env variables, arguments, and the actual script within the
+# workflow definition rather than at `ShellTask` instantiation
+portable_shell_task = ShellTask(
+    name="portable_shell_task_instance",
+    debug=True,
+    inputs=flytekit.kwtypes(env=typing.Dict[str, str], script_args=str, script_file=str),
+    output_locs=[
+        OutputLocation(
+            var="k",
+            var_type=FlyteDirectory,
+            location="{ctx.working_directory}",
+        )
+    ],
+    script="""
+#!/bin/bash
+
+set -uexo pipefail
+
+cd {ctx.working_directory}
+
+{inputs.export_env}
+
+bash {inputs.script_file} {inputs.script_args}
+    """
+)
