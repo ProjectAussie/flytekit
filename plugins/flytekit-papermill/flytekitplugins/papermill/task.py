@@ -241,7 +241,8 @@ class NotebookTask(PythonInstanceTask[T]):
         output_list = []
         for k, type_v in self.python_interface.outputs.items():
             if k == self._IMPLICIT_OP_NOTEBOOK:
-                output_list.append(self.output_notebook_path)
+                output_list
+                (self.output_notebook_path)
             elif k == self._IMPLICIT_RENDERED_NOTEBOOK:
                 output_list.append(self.rendered_output_path)
             elif k in m:
@@ -260,7 +261,7 @@ class NotebookTask(PythonInstanceTask[T]):
             nb_deck.append(notebook_html)
             # Since user_params is passed by reference, this modifies the object in the outside scope
             # which then causes the deck to be rendered later during the dispatch_execute function.
-            user_params.decks.append(nb_deck)
+            user_params.default_deck.append(nb_deck)
 
         return self._config_task_instance.post_execute(user_params, rval)
 
