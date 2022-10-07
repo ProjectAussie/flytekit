@@ -1,7 +1,7 @@
 import datetime
 import typing
 from dataclasses import dataclass
-from typing import List
+from typing import Dict, List
 
 import pandas
 from dataclasses_json import dataclass_json
@@ -10,12 +10,16 @@ from typing_extensions import Annotated
 
 from flytekit.core.base_sql_task import SQLTask
 from flytekit.core.base_task import kwtypes
+from flytekit.core.context_manager import FlyteContextManager
 from flytekit.core.dynamic_workflow_task import dynamic
 from flytekit.core.hash import HashMethod
-from flytekit.core.local_cache import LocalTaskCache
+from flytekit.core.local_cache import LocalTaskCache, _calculate_cache_key
 from flytekit.core.task import TaskMetadata, task
 from flytekit.core.testing import task_mock
+from flytekit.core.type_engine import TypeEngine
 from flytekit.core.workflow import workflow
+from flytekit.models.literals import LiteralMap
+from flytekit.models.types import LiteralType, SimpleType
 from flytekit.types.schema import FlyteSchema
 
 # Global counter used to validate number of calls to cache
@@ -257,9 +261,9 @@ def test_dict_wf_with_constants():
     assert n_cached_task_calls == 2
 
 
-def test_set_integer_literal_hash_is_not_cached():
+def test_set_integer_literal_hash_is_cached():
     """
-    Test to confirm that the local cache is not set in the case of integers, even if we
+    Test to confirm that the local cache is set in the case of integers, even if we
     return an annotated integer. In order to make this very explicit, we define a constant hash
     function, i.e. the same value is returned by it regardless of the input.
     """
@@ -285,13 +289,13 @@ def test_set_integer_literal_hash_is_not_cached():
     assert n_cached_task_calls == 0
     assert wf(a=3) == 3
     assert n_cached_task_calls == 1
-    # Confirm that the value is not cached, even though we set a hash function that
-    # returns a constant value and that the task has only one input.
-    assert wf(a=2) == 2
-    assert n_cached_task_calls == 2
+    # Confirm that the value is cached due to the fact the hash value is constant, regardless
+    # of the value passed to the cacheable task.
+    assert wf(a=2) == 3
+    assert n_cached_task_calls == 1
     # Confirm that the cache is hit if we execute the workflow with the same value as previous run.
-    assert wf(a=2) == 2
-    assert n_cached_task_calls == 2
+    assert wf(a=2) == 3
+    assert n_cached_task_calls == 1
 
 
 def test_pass_annotated_to_downstream_tasks():
@@ -385,3 +389,52 @@ def test_list_of_pandas_dataframe_hash():
     # Confirm that we see a cache hit in the case of annotated dataframes.
     my_workflow()
     assert n_cached_task_calls == 1
+
+
+def test_cache_key_repetition():
+    pt = Dict
+    lt = TypeEngine.to_literal_type(pt)
+    ctx = FlyteContextManager.current_context()
+    kwargs = {
+        "a": 0.41083513079747874,
+        "b": 0.7773927872515183,
+        "c": 17,
+    }
+    keys = set()
+    for i in range(0, 100):
+        lit = TypeEngine.to_literal(ctx, kwargs, Dict, lt)
+        lm = LiteralMap(
+            literals={
+                "d": lit,
+            }
+        )
+        key = _calculate_cache_key("t1", "007", lm)
+        keys.add(key)
+
+    assert len(keys) == 1
+
+
+def test_stable_cache_key():
+    """
+    The intent of this test is to ensure cache keys are stable across releases and python versions.
+    """
+    pt = Dict
+    lt = TypeEngine.to_literal_type(pt)
+    ctx = FlyteContextManager.current_context()
+    kwargs = {
+        "a": 42,
+        "b": "abcd",
+        "c": 0.12349,
+        "d": [1, 2, 3],
+    }
+    lit = TypeEngine.to_literal(ctx, kwargs, Dict, lt)
+    lm = LiteralMap(
+        literals={
+            "lit_1": lit,
+            "lit_2": TypeEngine.to_literal(ctx, 99, int, LiteralType(simple=SimpleType.INTEGER)),
+            "lit_3": TypeEngine.to_literal(ctx, 3.14, float, LiteralType(simple=SimpleType.FLOAT)),
+            "lit_4": TypeEngine.to_literal(ctx, True, bool, LiteralType(simple=SimpleType.BOOLEAN)),
+        }
+    )
+    key = _calculate_cache_key("task_name_1", "31415", lm)
+    assert key == "task_name_1-31415-a291dc6fe0be387c1cfd67b4c6b78259"
